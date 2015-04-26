@@ -134,7 +134,7 @@ import (
 type EncodeNameStyle int
 
 const (
-	camelStyle = EncodeNameStyle(1)
+	camelStyle      = EncodeNameStyle(1)
 	upperCamelStyle = EncodeNameStyle(2)
 	underScoreStyle = EncodeNameStyle(4)
 )
@@ -146,6 +146,9 @@ func UpperCamelStyel() {
 }
 func UnderScoreStyle() {
 	encodeNameType = underScoreStyle
+}
+func CamelStyle() {
+	encodeNameType = camelStyle
 }
 
 func Marshal(v interface{}) ([]byte, error) {
