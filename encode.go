@@ -131,18 +131,18 @@ import (
 // an infinite recursion.
 //
 
-type EncodeNameFuture int
+type EncodeNameStyle int
 
 const (
-	CamelEncodeName      = EncodeNameFuture(1)
-	CamelUpperEncodeName = EncodeNameFuture(2)
-	UnderLineEncodeName  = EncodeNameFuture(4)
+	CamelStyle      = EncodeNameStyle(1)
+	UpperCamelStyle = EncodeNameStyle(2)
+	UnderScoreStyle = EncodeNameStyle(4)
 )
 
-var encodeNameFutureType = CamelEncodeName
+var encodeNameType = CamelStyle
 
-func SetEncodeNameFeture(f EncodeNameFuture) {
-	encodeNameFutureType = f
+func SetEncodeStyle(f EncodeNameStyle) {
+	encodeNameType = f
 }
 
 func Marshal(v interface{}) ([]byte, error) {
@@ -1064,16 +1064,29 @@ func typeFields(t reflect.Type) []field {
 				if name != "" || !sf.Anonymous || ft.Kind() != reflect.Struct {
 					tagged := name != ""
 					if name == "" {
-						switch encodeNameFutureType {
-						case CamelEncodeName:
+						switch encodeNameType {
+						case CamelStyle:
 							bs := []rune(sf.Name)
 							if 'A' <= bs[0] && bs[0] <= 'z' {
 								bs[0] += ('a' - 'A')
 							}
 							name = string(bs)
-						case CamelUpperEncodeName:
+						case UpperCamelStyle:
 							name = sf.Name
-						case UnderLineEncodeName:
+						case UnderScoreStyle:
+							bs := make([]rune, 0, 2*len(sf.Name))
+							for _, s := range sf.Name {
+								if 'A' <= s && s <= 'Z' {
+									s += ('a' - 'A')
+									bs = append(bs, '_')
+								}
+								bs = append(bs, s)
+							}
+							if bs[0] == '_' {
+								name = string(bs[1:])
+							} else {
+								name = string(bs)
+							}
 						}
 					}
 					fields = append(fields, fillField(field{
