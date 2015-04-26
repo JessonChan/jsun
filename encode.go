@@ -134,15 +134,18 @@ import (
 type EncodeNameStyle int
 
 const (
-	CamelStyle      = EncodeNameStyle(1)
-	UpperCamelStyle = EncodeNameStyle(2)
-	UnderScoreStyle = EncodeNameStyle(4)
+	camelStyle = EncodeNameStyle(1)
+	upperCamelStyle = EncodeNameStyle(2)
+	underScoreStyle = EncodeNameStyle(4)
 )
 
-var encodeNameType = CamelStyle
+var encodeNameType = camelStyle
 
-func SetEncodeStyle(f EncodeNameStyle) {
-	encodeNameType = f
+func UpperCamelStyel() {
+	encodeNameType = upperCamelStyle
+}
+func UnderScoreStyle() {
+	encodeNameType = underScoreStyle
 }
 
 func Marshal(v interface{}) ([]byte, error) {
@@ -1065,15 +1068,15 @@ func typeFields(t reflect.Type) []field {
 					tagged := name != ""
 					if name == "" {
 						switch encodeNameType {
-						case CamelStyle:
+						case camelStyle:
 							bs := []rune(sf.Name)
 							if 'A' <= bs[0] && bs[0] <= 'z' {
 								bs[0] += ('a' - 'A')
 							}
 							name = string(bs)
-						case UpperCamelStyle:
+						case upperCamelStyle:
 							name = sf.Name
-						case UnderScoreStyle:
+						case underScoreStyle:
 							bs := make([]rune, 0, 2*len(sf.Name))
 							for _, s := range sf.Name {
 								if 'A' <= s && s <= 'Z' {
