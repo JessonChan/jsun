@@ -22,19 +22,23 @@ func Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(nv.Interface())
 }
 
+// dst 在这个特定的情况下，不会存在指针类型，也不存在其它如不可导出情况
 func copyValue(dst, src reflect.Value) {
 	for i := 0; i < src.NumField(); i++ {
 		name := src.Type().Field(i).Name
-		if dst.FieldByName(name).IsValid() && dst.FieldByName(name).CanSet() {
-			field := src.Field(i)
-			if field.Kind() == reflect.Ptr {
-				field = field.Elem()
-			}
-			if field.Kind() == reflect.Struct {
-				copyValue(dst.FieldByName(name), field)
-			} else {
-				dst.FieldByName(name).Set(field)
-			}
+		dstField := dst.FieldByName(name)
+		field := src.Field(i)
+		if field.Kind() == reflect.Ptr {
+			field = field.Elem()
+		}
+		if field.Type() == dstField.Type() {
+			dstField.Set(field)
+			continue
+		}
+		if field.Kind() == reflect.Struct {
+			copyValue(dstField, field)
+		} else {
+			dstField.Set(field)
 		}
 	}
 }
