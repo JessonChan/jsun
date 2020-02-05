@@ -9,36 +9,50 @@ import (
 
 type S struct {
 	Num  int
-	Unit U `json:"unitInChina"`
+	Unit U `json:"unit"`
 }
 
 type U struct {
-	Desc    string
-	Country string
+	UnitDesc    string
+	UnitCountry string
+}
+
+type Date struct {
+	timeUnix int64
+}
+
+func (d *Date) MarshalJSON() ([]byte, error) {
+	return time.Unix(d.timeUnix, 0).MarshalJSON()
 }
 
 func Test_visitStruct(t *testing.T) {
 	a := struct {
-		Name   string
-		Size   S
-		Zero   string
-		Create time.Time
+		CarName string
+		CarSize S
+		Zero    string
+		Create  time.Time
+		LogDate *Date
 	}{
-		Name: "Car",
-		Size: S{
+		CarName: "Car",
+		CarSize: S{
 			Num: 4,
 			Unit: U{
-				Desc:    "meter",
-				Country: "China",
+				UnitDesc:    "meter",
+				UnitCountry: "China",
 			},
 		},
-		Zero:   "zero",
-		Create: time.Now(),
+		Zero:    "zero",
+		Create:  time.Now(),
+		LogDate: &Date{time.Now().Unix()},
 	}
 	// json.Marshal(&a)
 	// visitStruct(&a)
 	bs, err := Marshal(a)
 	fmt.Println(err, string(bs))
 	bs, err = json.Marshal(a)
+	fmt.Println(err, string(bs))
+	bs, err = Marshal(a, UnderScoreStyle)
+	fmt.Println(err, string(bs))
+	bs, err = Marshal(a, UpperCamelStyle)
 	fmt.Println(err, string(bs))
 }

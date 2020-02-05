@@ -2,22 +2,83 @@ package jsun
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"reflect"
-	"strings"
 	"sync"
 )
 
 var typeCache sync.Map
 
-func Marshal(v interface{}) ([]byte, error) {
+type JsonNameStyle int
+
+var DebugMessage bool
+
+const (
+	LowerCamelStyle = JsonNameStyle(0)
+	UpperCamelStyle = JsonNameStyle(1)
+	UnderScoreStyle = JsonNameStyle(2)
+)
+
+var styleNameFunc = []func(string) string{
+	func(s string) string {
+		bs := []rune(s)
+		if 'A' <= bs[0] && bs[0] <= 'z' {
+			bs[0] += 'a' - 'A'
+		}
+		return string(bs)
+	},
+	func(s string) string { return s },
+	func(s string) string {
+		bs := make([]rune, 0, 2*len(s))
+		for _, s := range s {
+			if 'A' <= s && s <= 'Z' {
+				s += 'a' - 'A'
+				bs = append(bs, '_')
+			}
+			bs = append(bs, s)
+		}
+		if bs[0] == '_' {
+			s = string(bs[1:])
+		} else {
+			s = string(bs)
+		}
+		return s
+	}}
+
+var defaultStyle = LowerCamelStyle
+var unsupportedErr = errors.New("unsupported json name style")
+
+func SetDefaultStyle(style JsonNameStyle) {
+	if style > UnderScoreStyle {
+		panic(unsupportedErr)
+	}
+	defaultStyle = style
+}
+
+func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
+	style := defaultStyle
+	if len(styles) > 0 {
+		style = styles[0]
+		if style > UnderScoreStyle {
+			panic(json.MarshalerError{
+				Type: reflect.TypeOf(v),
+				Err:  unsupportedErr,
+			})
+		}
+	}
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Ptr {
 		rv = reflect.Indirect(rv)
 	}
-	typ, _ := typeCache.LoadOrStore(rv, buildType(rv.Type()))
+	key := fmt.Sprintf("%s%d", rv.Type(), style)
+	typ, find := typeCache.Load(key)
+	if find == false {
+		typ = buildType(rv.Type(), style)
+		typeCache.Store(key, typ)
+	}
 	nv := reflect.New(typ.(reflect.Type))
-	fmt.Printf("%v\n", typ.(reflect.Type))
 	copyValue(nv.Elem(), rv)
 	return json.Marshal(nv.Interface())
 }
@@ -43,9 +104,9 @@ func copyValue(dst, src reflect.Value) {
 	}
 }
 
-func buildType(typ reflect.Type) reflect.Type {
+func buildType(typ reflect.Type, style JsonNameStyle) reflect.Type {
 	var fs []reflect.StructField
-	visitType(typ, 0, &fs, "", "", true)
+	visitType(typ, 0, &fs, "", "", style)
 	return reflect.StructOf(fs)
 }
 
@@ -59,16 +120,21 @@ func repeat(n int) string {
 
 var marshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
 
-func visitType(typ reflect.Type, level int, fs *[]reflect.StructField, name string, tag string, isStruct bool) {
-	fmt.Println(repeat(level), typ.Kind(), name, tag, isStruct)
-	if typ.Kind() == reflect.Ptr {
-		visitType(typ.Elem(), level+1, fs, name, tag, false)
+func visitType(typ reflect.Type, level int, fs *[]reflect.StructField, name string, tag string, style JsonNameStyle) {
+	if DebugMessage {
+		log.Println(repeat(level), typ.Kind(), name, tag)
 	}
-	if typ.Kind() != reflect.Struct {
+	if typ.Implements(marshalerType) {
+		if typ.Kind() == reflect.Ptr {
+			typ = typ.Elem()
+		}
 		*fs = append(*fs, reflect.StructField{Name: name, Type: typ, Tag: reflect.StructTag(tag)})
 		return
 	}
-	if typ.Implements(marshalerType) {
+	if typ.Kind() == reflect.Ptr {
+		typ = typ.Elem()
+	}
+	if typ.Kind() != reflect.Struct || typ.Implements(marshalerType) {
 		*fs = append(*fs, reflect.StructField{Name: name, Type: typ, Tag: reflect.StructTag(tag)})
 		return
 	}
@@ -77,23 +143,22 @@ func visitType(typ reflect.Type, level int, fs *[]reflect.StructField, name stri
 		jt := typ.Field(i).Tag.Get("json")
 		fn := typ.Field(i).Name
 		if jt == "" {
-			jt = strings.ToLower(fn)
+			jt = styleNameFunc[style](fn)
 		}
 		jt = fmt.Sprintf(`json:"%s"`, jt)
-		// fmt.Println("-----", fn, jt)
-		visitType(typ.Field(i).Type, level+1, &nfs, fn, jt, true)
+		visitType(typ.Field(i).Type, level+1, &nfs, fn, jt, style)
 	}
 
-	if isStruct {
-		if name == "" {
-			*fs = nfs
-		} else {
-			*fs = append(*fs, reflect.StructField{
-				Name: name,
-				Type: reflect.StructOf(nfs),
-				Tag:  reflect.StructTag(tag),
-			})
-			fmt.Println(repeat(level), typ.Kind(), name, tag, "build")
+	if name == "" {
+		*fs = nfs
+	} else {
+		*fs = append(*fs, reflect.StructField{
+			Name: name,
+			Type: reflect.StructOf(nfs),
+			Tag:  reflect.StructTag(tag),
+		})
+		if DebugMessage {
+			log.Println(repeat(level), typ.Kind(), name, tag, "build")
 		}
 	}
 }
