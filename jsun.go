@@ -72,6 +72,9 @@ func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
 			})
 		}
 	}
+	if style == UpperCamelStyle {
+		return json.Marshal(v)
+	}
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Ptr {
 		rv = reflect.Indirect(rv)
