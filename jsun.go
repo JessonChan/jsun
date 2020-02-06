@@ -76,6 +76,9 @@ func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
 	if rv.Kind() == reflect.Ptr {
 		rv = reflect.Indirect(rv)
 	}
+	if rv.Type().Kind() != reflect.Struct {
+		return json.Marshal(v)
+	}
 	key := fmt.Sprintf("%s%d", rv.Type(), style)
 	typ, find := typeCache.Load(key)
 	if find == false {
@@ -93,6 +96,9 @@ func copyValue(dst, src reflect.Value) {
 		name := src.Type().Field(i).Name
 		dstField := dst.FieldByName(name)
 		field := src.Field(i)
+		if src.Type().Field(i).PkgPath != "" {
+			continue
+		}
 		if field.Kind() == reflect.Ptr {
 			field = field.Elem()
 		}
@@ -144,6 +150,9 @@ func visitType(typ reflect.Type, level int, fs *[]reflect.StructField, name stri
 	}
 	var nfs []reflect.StructField
 	for i := 0; i < typ.NumField(); i++ {
+		if typ.Field(i).PkgPath != "" {
+			continue
+		}
 		jt := typ.Field(i).Tag.Get("json")
 		fn := typ.Field(i).Name
 		if jt == "" {
