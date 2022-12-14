@@ -55,6 +55,7 @@ func SetDefaultStyle(style JsonNameStyle) {
 		panic(errUnsupported)
 	}
 	defaultStyle = style
+	json.JsonNameConverter = styleNameFunc[style]
 }
 
 func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
