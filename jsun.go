@@ -72,9 +72,11 @@ func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
 			})
 		}
 	}
+	// 此时可以直接使用原来的包
 	if style == UpperCamelStyle {
 		return json.Marshal(v)
 	}
+	// 此时需要动态的生成新的结构
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Ptr {
 		rv = reflect.Indirect(rv)
@@ -84,7 +86,7 @@ func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
 	}
 	key := fmt.Sprintf("%s%d", rv.Type(), style)
 	typ, find := typeCache.Load(key)
-	if find == false {
+	if !find {
 		typ = buildType(rv.Type(), style)
 		typeCache.Store(key, typ)
 	}

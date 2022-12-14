@@ -115,6 +115,18 @@ type renamedByte byte
 type renamedByteSlice []byte
 type renamedRenamedByteSlice []renamedByte
 
+func TestMap(t *testing.T) {
+	m := map[string]interface{}{
+		"data": struct {
+			AgeValue int `json:"age_value"`
+		}{
+			AgeValue: 100,
+		},
+	}
+	bs, _ := Marshal(m, LowerCamelStyle)
+	fmt.Println(string(bs))
+}
+
 func TestEncodeRenamedByteSlice(t *testing.T) {
 	s := renamedByteSlice("abc")
 	result, err := json.Marshal(s)
