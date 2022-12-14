@@ -22,9 +22,8 @@ func main() {
 		FirstName: "FirstName",
 		LastName:  "LastName",
 	}
+	jsun.SetDefaultStyle(jsun.LowerCamelStyle)
 	b, _ := jsun.Marshal(p)
-    // or
-	// b, _ := jsun.Marshal(p,jsun.LowerCamelStyle)
 	fmt.Println(string(b))
 }
 
@@ -56,7 +55,8 @@ func main() {
 		FirstName: "FirstName",
 		LastName:  "LastName",
 	}
-	b, _ := jsun.Marshal(p, jsun.UnderScoreStyle)
+	jsun.SetDefaultStyle(jsun.UnderScoreStyle)
+	b, _ := jsun.Marshal(p)
 	fmt.Println(string(b))
 }
 ```
@@ -87,7 +87,8 @@ func main() {
 		FirstName: "FirstName",
 		LastName:  "LastName",
 	}
-	b, _ := jsun.Marshal(p, jsun.UpperCamelStyle)
+	jsun.SetDefaultStyle(jsun.UpperCamelStyle)
+	b, _ := jsun.Marshal(p)
 	fmt.Println(string(b))
 }
 
