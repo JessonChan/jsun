@@ -5,15 +5,11 @@
 package jsun
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"reflect"
-	"sync"
-)
 
-var typeCache sync.Map
+	"github.com/JessonChan/jsun/json"
+)
 
 type JsonNameStyle int
 
@@ -52,11 +48,11 @@ var styleNameFunc = []func(string) string{
 	}}
 
 var defaultStyle = LowerCamelStyle
-var unsupportedErr = errors.New("unsupported json name style")
+var errUnsupported = errors.New("unsupported json name style")
 
 func SetDefaultStyle(style JsonNameStyle) {
 	if style > UnderScoreStyle {
-		panic(unsupportedErr)
+		panic(errUnsupported)
 	}
 	defaultStyle = style
 }
@@ -68,115 +64,10 @@ func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
 		if style > UnderScoreStyle {
 			panic(json.MarshalerError{
 				Type: reflect.TypeOf(v),
-				Err:  unsupportedErr,
+				Err:  errUnsupported,
 			})
 		}
 	}
-	// 此时可以直接使用原来的包
-	if style == UpperCamelStyle {
-		return json.Marshal(v)
-	}
-	// 此时需要动态的生成新的结构
-	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr {
-		rv = reflect.Indirect(rv)
-	}
-	if rv.Type().Kind() != reflect.Struct {
-		return json.Marshal(v)
-	}
-	key := fmt.Sprintf("%s%d", rv.Type(), style)
-	typ, find := typeCache.Load(key)
-	if !find {
-		typ = buildType(rv.Type(), style)
-		typeCache.Store(key, typ)
-	}
-	nv := reflect.New(typ.(reflect.Type))
-	copyValue(nv.Elem(), rv)
-	return json.Marshal(nv.Interface())
-}
-
-// dst 在这个特定的情况下，不会存在指针类型，也不存在其它如不可导出情况
-func copyValue(dst, src reflect.Value) {
-	for i := 0; i < src.NumField(); i++ {
-		name := src.Type().Field(i).Name
-		dstField := dst.FieldByName(name)
-		field := src.Field(i)
-		if src.Type().Field(i).PkgPath != "" {
-			continue
-		}
-		if field.Kind() == reflect.Ptr {
-			field = field.Elem()
-		}
-		if field.Type() == dstField.Type() {
-			dstField.Set(field)
-			continue
-		}
-		if field.Kind() == reflect.Struct {
-			copyValue(dstField, field)
-		} else {
-			dstField.Set(field)
-		}
-	}
-}
-
-func buildType(typ reflect.Type, style JsonNameStyle) reflect.Type {
-	var fs []reflect.StructField
-	visitType(typ, 0, &fs, "", "", style)
-	return reflect.StructOf(fs)
-}
-
-func repeat(n int) string {
-	s := ""
-	for i := 0; i < n+1; i++ {
-		s = s + "--"
-	}
-	return s
-}
-
-var marshalerType = reflect.TypeOf((*json.Marshaler)(nil)).Elem()
-
-func visitType(typ reflect.Type, level int, fs *[]reflect.StructField, name string, tag string, style JsonNameStyle) {
-	if DebugMessage {
-		log.Println(repeat(level), typ.Kind(), name, tag)
-	}
-	if typ.Implements(marshalerType) {
-		if typ.Kind() == reflect.Ptr {
-			typ = typ.Elem()
-		}
-		*fs = append(*fs, reflect.StructField{Name: name, Type: typ, Tag: reflect.StructTag(tag)})
-		return
-	}
-	if typ.Kind() == reflect.Ptr {
-		typ = typ.Elem()
-	}
-	if typ.Kind() != reflect.Struct || typ.Implements(marshalerType) {
-		*fs = append(*fs, reflect.StructField{Name: name, Type: typ, Tag: reflect.StructTag(tag)})
-		return
-	}
-	var nfs []reflect.StructField
-	for i := 0; i < typ.NumField(); i++ {
-		if typ.Field(i).PkgPath != "" {
-			continue
-		}
-		jt := typ.Field(i).Tag.Get("json")
-		fn := typ.Field(i).Name
-		if jt == "" {
-			jt = styleNameFunc[style](fn)
-		}
-		jt = fmt.Sprintf(`json:"%s"`, jt)
-		visitType(typ.Field(i).Type, level+1, &nfs, fn, jt, style)
-	}
-
-	if name == "" {
-		*fs = nfs
-	} else {
-		*fs = append(*fs, reflect.StructField{
-			Name: name,
-			Type: reflect.StructOf(nfs),
-			Tag:  reflect.StructTag(tag),
-		})
-		if DebugMessage {
-			log.Println(repeat(level), typ.Kind(), name, tag, "build")
-		}
-	}
+	json.JsonNameConverter = styleNameFunc[style]
+	return json.Marshal(v)
 }
