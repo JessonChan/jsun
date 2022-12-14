@@ -6,14 +6,9 @@ package jsun
 
 import (
 	"errors"
-	"reflect"
-
-	"github.com/JessonChan/jsun/json"
 )
 
 type JsonNameStyle int
-
-var DebugMessage bool
 
 const (
 	LowerCamelStyle = JsonNameStyle(0)
@@ -47,28 +42,14 @@ var styleNameFunc = []func(string) string{
 		return s
 	}}
 
-var defaultStyle = LowerCamelStyle
 var errUnsupported = errors.New("unsupported json name style")
+
+// JsonNameConverter 用来最终确定json的风格，最终在 encode.go 中起作用
+var JsonNameConverter = func(name string) string { return name }
 
 func SetDefaultStyle(style JsonNameStyle) {
 	if style > UnderScoreStyle {
 		panic(errUnsupported)
 	}
-	defaultStyle = style
-	json.JsonNameConverter = styleNameFunc[style]
-}
-
-func Marshal(v interface{}, styles ...JsonNameStyle) ([]byte, error) {
-	style := defaultStyle
-	if len(styles) > 0 {
-		style = styles[0]
-		if style > UnderScoreStyle {
-			panic(json.MarshalerError{
-				Type: reflect.TypeOf(v),
-				Err:  errUnsupported,
-			})
-		}
-	}
-	json.JsonNameConverter = styleNameFunc[style]
-	return json.Marshal(v)
+	JsonNameConverter = styleNameFunc[style]
 }
